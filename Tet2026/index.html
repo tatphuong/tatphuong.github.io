@@ -104,14 +104,44 @@
 
     <script>
         const isMobile=/Mobi|Android/i.test(navigator.userAgent);
-        const DEFAULT_URL = "https://images.unsplash.com/photo-1545601445-4d6a0a0565f0";
+        const IMAGE_COUNT = 10;
+function getRandomImage() {
+    const n = Math.floor(Math.random() * IMAGE_COUNT) + 1;
+    return `img/${n}.jpg`;
+}
+
         const WISHES = [
             "Vạn sự như ý - Tỷ sự như mơ",
             "Tiền vào như nước - Tiền ra nhỏ giọt",
             "Gia đình hạnh phúc - Sức khỏe dồi dào",
             "Năm mới thắng lợi mới - Thành công rực rỡ",
-            "Tình duyên phơi phới - Hạnh phúc ngập tràn"
+            "Tình duyên phơi phới - Hạnh phúc ngập tràn",
+
+            "An khang thịnh vượng - Phúc lộc đầy nhà",
+            "Xuân sang phú quý - Cả năm an vui",
+            "Công việc suôn sẻ - Thuận lợi hanh thông",
+            "May mắn đủ đầy - Niềm vui trọn vẹn",
+            "Tiền tài rộng mở - Cuộc sống thảnh thơi",
+
+            "Tết đến bình an - Xuân sang hạnh phúc",
+            "Gia đạo yên ấm - Phúc lộc song toàn",
+            "Khởi đầu thuận lợi - Kết quả viên mãn",
+            "Mọi điều như ý - Trăm sự hanh thông",
+            "Xuân mới rực rỡ - Vạn điều tốt lành",
+
+            "Năm mới phát tài - Lộc vào như ý",
+            "Cười nhiều hơn nữa - Lo lắng ít đi",
+            "Tâm an trí sáng - Vững bước thành công",
+            "Sức khỏe dồi dào - Nụ cười luôn nở",
+            "Niềm vui lan tỏa - Hạnh phúc đong đầy",
+
+            "Xuân về gió mát - Lộc phát quanh năm",
+            "Tết này rộn rã - Tết sau huy hoàng",
+            "Gia đình sum họp - Tình thân bền lâu",
+            "Học hành tấn tới - Sự nghiệp thăng hoa",
+            "Lộc xuân gõ cửa - May mắn theo chân"
         ];
+
 
         const boomSound = new Audio("https://www.soundjay.com/mechanical/sounds/explosion-02.mp3");
         
@@ -234,7 +264,7 @@
 
         function showPhoto(x, y) {
             const img = document.createElement('img');
-            img.src = DEFAULT_URL;
+            img.src = getRandomImage();
             img.className = 'firework-img';
             img.style.left = x + 'px';
             img.style.top = y + 'px';
@@ -318,7 +348,7 @@
                 el.style.left = target.x + 'px'; 
                 el.onclick = () => {
                     document.getElementById('modal').style.display = 'flex';
-                    document.getElementById('modal-img').src = DEFAULT_URL;
+                    document.getElementById('modal-img').src = getRandomImage();
                     document.getElementById('modal-text').innerText = WISHES[i % WISHES.length];
                     el.classList.add('opened');
                 };
