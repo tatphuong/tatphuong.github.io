@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberVortex | Creative Audio Visualizer v5.4</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #050505;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        #visualizer-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #bg-shader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.6;
+        }
+
+        .ui-overlay {
+            position: relative;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .interactive {
+            pointer-events: auto;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+        }
+
+        .neon-text {
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8), 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+
+        .mode-btn {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 8px 4px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .mode-btn:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .mode-btn.active {
+            border-color: rgba(34, 211, 238, 0.5);
+            background: rgba(34, 211, 238, 0.15);
+            color: #22d3ee;
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 255, 255, 0.3); border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <canvas id="bg-shader"></canvas>
+    <canvas id="visualizer-canvas"></canvas>
+
+    <!-- Local Audio Element -->
+    <audio id="local-audio" class="hidden" crossorigin="anonymous"></audio>
+
+    <div class="ui-overlay h-screen w-full flex flex-col justify-between p-8">
+        <!-- Top Bar -->
+        <div class="flex justify-between items-start">
+            <div>
+                <h1 class="text-4xl font-black tracking-tighter neon-text uppercase italic">CyberVortex</h1>
+                <p class="text-[10px] tracking-[0.3em] uppercase opacity-50">Creative Visualizer v5.4</p>
+            </div>
+            
+            <div class="interactive glass p-4 w-80 space-y-4">
+                <div class="space-y-2">
+                    <label class="flex items-center justify-center w-full gap-2 px-3 py-3 border border-dashed border-cyan-500/30 rounded cursor-pointer hover:bg-cyan-500/5 transition-all">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-cyan-400"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                        <span class="text-xs font-bold uppercase tracking-widest text-cyan-400">Chọn nhạc MP3 / WAV</span>
+                        <input type="file" id="local-file-input" accept="audio/*" class="hidden">
+                    </label>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <button id="play-pause" class="text-white opacity-80 hover:opacity-100 transition-all">
+                        <svg id="play-icon" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        <svg id="pause-icon" class="hidden" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                    </button>
+                    <div class="h-[3px] bg-white/10 flex-1 rounded-full overflow-hidden cursor-pointer" id="progress-container">
+                        <div id="progress-bar" class="h-full bg-cyan-400 w-0 transition-all duration-100"></div>
+                    </div>
+                </div>
+                <div id="audio-source-info" class="text-[9px] text-cyan-400/60 uppercase tracking-widest text-center truncate px-2 italic">Đang tải nhạc...</div>
+            </div>
+        </div>
+
+        <!-- Visualizer Controls -->
+        <div class="flex justify-end gap-6 items-end">
+            <div class="interactive glass p-6 space-y-5 w-80">
+                <div>
+                    <div class="flex justify-between text-[10px] uppercase mb-2 opacity-60">
+                        <span>Độ nhạy (Sensitivity)</span>
+                        <span id="sens-val">1.5</span>
+                    </div>
+                    <input type="range" id="sens-slider" min="0.5" max="3" step="0.1" value="1.5" class="w-full accent-cyan-400">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-[10px] uppercase mb-2 opacity-60">
+                        <span>Đổi màu (Color Shift)</span>
+                        <span id="color-val">180</span>
+                    </div>
+                    <input type="range" id="color-slider" min="0" max="360" step="1" value="180" class="w-full accent-purple-400">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-[10px] uppercase mb-2 opacity-60 font-bold text-cyan-400">
+                        <span>Chế độ Visualizer</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 mt-2">
+                        <button class="mode-btn visual-mode" data-mode="stickman">Stickman</button>
+                        <button class="mode-btn visual-mode active" data-mode="heyhey">Hey Hey</button>
+                        <button class="mode-btn visual-mode" data-mode="chicken">Chicken</button>
+                        <button class="mode-btn visual-mode" data-mode="cow">Cow</button>
+                        <button class="mode-btn visual-mode" data-mode="vortex">Vortex</button>
+                        <button class="mode-btn visual-mode" data-mode="bars">Bars</button>
+                        <button class="mode-btn visual-mode col-span-3" data-mode="worm">Neon Worm</button>
+                    </div>
+                </div>
+                <div class="text-[9px] text-center opacity-30 italic leading-tight">V5.4: Đã tích hợp nạp nhạc mặc định từ thư mục mp3</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fragment Shader -->
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        precision highp float;
+        uniform float u_time;
+        uniform vec2 u_resolution;
+        uniform float u_bass;
+        uniform float u_mid;
+        uniform float u_treble;
+        uniform float u_hue;
+
+        vec3 hsv2rgb(vec3 c) {
+            vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+            vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+            return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+        }
+
+        void main() {
+            vec2 uv = (gl_FragCoord.xy * 2.0 - u_resolution.xy) / min(u_resolution.y, u_resolution.x);
+            float dist = length(uv);
+            float swirl = sin(dist * 5.0 - u_time * 0.5 + u_bass * 2.0);
+            vec3 baseColor = hsv2rgb(vec3(u_hue / 360.0 + swirl * 0.1, 0.8, 0.05 + u_bass * 0.3));
+            float f = sin(uv.x * 10.0 + u_time) * cos(uv.y * 10.0 + u_time);
+            f *= u_treble * 2.0;
+            gl_FragColor = vec4(baseColor + f * 0.05, 1.0);
+        }
+    </script>
+
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        attribute vec2 position;
+        void main() {
+            gl_Position = vec4(position, 0.0, 1.0);
+        }
+    </script>
+
+    <script>
+        /**
+         * CYBERVORTEX ENGINE V5.4
+         */
+        const state = {
+            audioContext: null,
+            analyser: null,
+            dataArray: null,
+            localSourceNode: null,
+            sensitivity: 1.5,
+            hue: 180,
+            currentMode: 'heyhey', 
+            audioData: { bass: 0, mid: 0, treble: 0, raw: [] }
+        };
+
+        const canvas = document.getElementById('visualizer-canvas');
+        const ctx = canvas.getContext('2d');
+        const shaderCanvas = document.getElementById('bg-shader');
+        const gl = shaderCanvas.getContext('webgl');
+        const localAudio = document.getElementById('local-audio');
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            shaderCanvas.width = window.innerWidth;
+            shaderCanvas.height = window.innerHeight;
+            if (gl) gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        async function initAudioContext() {
+            if (!state.audioContext) {
+                state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                state.analyser = state.audioContext.createAnalyser();
+                state.analyser.fftSize = 1024;
+                state.dataArray = new Uint8Array(state.analyser.frequencyBinCount);
+                
+                // Kết nối audio element vào analyser chỉ một lần duy nhất
+                state.localSourceNode = state.audioContext.createMediaElementSource(localAudio);
+                state.localSourceNode.connect(state.analyser);
+                state.analyser.connect(state.audioContext.destination);
+            }
+            if (state.audioContext.state === 'suspended') await state.audioContext.resume();
+        }
+
+        // Tải nhạc mặc định từ thư mục mp3/
+        window.addEventListener('DOMContentLoaded', () => {
+            const defaultPath = 'mp3/default.mp3'; // Tên file nhạc mặc định của bạn
+            localAudio.src = defaultPath;
+            document.getElementById('audio-source-info').innerText = "Default: " + defaultPath;
+            
+            // Xử lý lỗi nếu không tìm thấy file mặc định
+            localAudio.onerror = () => {
+                document.getElementById('audio-source-info').innerText = "Chưa chọn nhạc (File mp3/default.mp3 không tìm thấy)";
+            };
+        });
+
+        document.getElementById('local-file-input').addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // Nếu người dùng chọn file mới, ta thiết lập lại nguồn
+            const url = URL.createObjectURL(file);
+            localAudio.src = url;
+            document.getElementById('audio-source-info').innerText = file.name.replace(/\.[^/.]+$/, "");
+            
+            await initAudioContext();
+            localAudio.play();
+            updatePlayPauseUI(true);
+        });
+
+        function updatePlayPauseUI(isPlaying) {
+            const p = document.getElementById('play-icon');
+            const s = document.getElementById('pause-icon');
+            if (isPlaying) { p.classList.add('hidden'); s.classList.remove('hidden'); }
+            else { p.classList.remove('hidden'); s.classList.add('hidden'); }
+        }
+
+        document.getElementById('play-pause').addEventListener('click', async () => {
+            if (!localAudio.src) return;
+            
+            await initAudioContext(); // Khởi tạo AudioContext khi người dùng tương tác lần đầu
+
+            if (localAudio.paused) {
+                localAudio.play();
+            } else {
+                localAudio.pause();
+            }
+            updatePlayPauseUI(!localAudio.paused);
+        });
+
+        // WebGL Setup
+        let program, positionBuffer, timeLoc, resLoc, bassLoc, midLoc, trebleLoc, hueLoc;
+        function initShader() {
+            const vsSource = document.getElementById('vertex-shader').text;
+            const fsSource = document.getElementById('fragment-shader').text;
+            const vs = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(vs, vsSource); gl.compileShader(vs);
+            const fs = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(fs, fsSource); gl.compileShader(fs);
+            program = gl.createProgram();
+            gl.attachShader(program, vs); gl.attachShader(program, fs);
+            gl.linkProgram(program);
+            positionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+            timeLoc = gl.getUniformLocation(program, 'u_time');
+            resLoc = gl.getUniformLocation(program, 'u_resolution');
+            bassLoc = gl.getUniformLocation(program, 'u_bass');
+            midLoc = gl.getUniformLocation(program, 'u_mid');
+            trebleLoc = gl.getUniformLocation(program, 'u_treble');
+            hueLoc = gl.getUniformLocation(program, 'u_hue');
+        }
+        initShader();
+
+        let lastTime = 0;
+        function render(time) {
+            time *= 0.001;
+            if (state.analyser) {
+                state.analyser.getByteFrequencyData(state.dataArray);
+                let b=0, m=0, t=0;
+                for(let i=0; i<15; i++) b += state.dataArray[i];
+                for(let i=16; i<100; i++) m += state.dataArray[i];
+                for(let i=100; i<255; i++) t += state.dataArray[i];
+                state.audioData.bass = (b / 15 / 255) * state.sensitivity;
+                state.audioData.mid = (m / 84 / 255) * state.sensitivity;
+                state.audioData.treble = (t / 155 / 255) * state.sensitivity;
+            }
+
+            gl.useProgram(program);
+            gl.uniform1f(timeLoc, time);
+            gl.uniform2f(resLoc, shaderCanvas.width, shaderCanvas.height);
+            gl.uniform1f(bassLoc, state.audioData.bass);
+            gl.uniform1f(midLoc, state.audioData.mid);
+            gl.uniform1f(trebleLoc, state.audioData.treble);
+            gl.uniform1f(hueLoc, state.hue);
+            const pos = gl.getAttribLocation(program, "position");
+            gl.enableVertexAttribArray(pos);
+            gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawVisualizer();
+            updateProgress();
+            requestAnimationFrame(render);
+        }
+
+        function drawMan(x, y, facingLeft, b, m, t) {
+            const sideMult = facingLeft ? -1 : 1;
+            const bounce = Math.sin(lastTime * 4) * 10 * b;
+            const neckY = y + bounce;
+            const hipY = neckY + 110;
+
+            ctx.beginPath();
+            ctx.arc(x, neckY - 35 - (b*10), 30 + (b*15), 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(x, neckY);
+            if (state.currentMode === 'heyhey') {
+                ctx.quadraticCurveTo(x + (20 * b * sideMult), neckY + 55, x, hipY);
+            } else {
+                ctx.lineTo(x, hipY);
+            }
+            ctx.stroke();
+
+            const shoulderY = neckY + 20;
+            const armLen = 50;
+            const armSwing = lastTime * 5;
+
+            [-1, 1].forEach(armSide => {
+                const elbowX = x + (armSide * armLen * 0.8 * Math.cos(armSwing * 0.5 + m));
+                const elbowY = shoulderY + armLen * 1.2 * Math.sin(armSwing * 0.5 + m);
+                const handX = elbowX + (armSide * armLen * Math.cos(armSwing + m * 2));
+                const handY = elbowY + armLen * 0.8 * Math.sin(armSwing + m * 2);
+                
+                ctx.beginPath();
+                ctx.moveTo(x, shoulderY);
+                ctx.lineTo(elbowX, elbowY);
+                ctx.lineTo(handX, handY);
+                ctx.stroke();
+                ctx.beginPath(); ctx.arc(handX, handY, 4, 0, Math.PI*2); ctx.fill();
+            });
+
+            const kick = lastTime * 6;
+            [-1, 1].forEach(legSide => {
+                const legOffset = legSide * 25;
+                const kneeX = x + legOffset + (legSide * 20 * t);
+                const kneeY = hipY + 60 * Math.abs(Math.sin(kick + (legSide * 0.5)));
+                const footX = kneeX + (legSide * 15) + (legSide * 30 * t);
+                const footY = kneeY + 60 * Math.abs(Math.cos(kick + (legSide * 0.5)));
+
+                ctx.beginPath();
+                ctx.moveTo(x, hipY);
+                ctx.lineTo(kneeX, kneeY);
+                ctx.lineTo(footX, footY);
+                ctx.stroke();
+                ctx.strokeRect(footX-8, footY, 16, 4);
+            });
+        }
+
+        function drawVisualizer() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const b = state.audioData.bass;
+            const m = state.audioData.mid;
+            const t = state.audioData.treble;
+
+            ctx.shadowBlur = 15 * b;
+            ctx.shadowColor = `hsla(${state.hue}, 100%, 50%, 0.8)`;
+            ctx.strokeStyle = `hsla(${state.hue}, 80%, 60%, 1)`;
+            ctx.lineWidth = 4;
+            ctx.lineCap = "round";
+
+            if (state.currentMode === 'heyhey') {
+                const dist = 350 - (b * 300);
+                const yPos = centerY - 50;
+                drawMan(centerX - dist, yPos, false, b, m, t);
+                drawMan(centerX + dist, yPos, true, b, m, t);
+                if (b > 0.65) {
+                    ctx.save();
+                    ctx.font = `italic 900 ${80 + b*50}px Inter`;
+                    ctx.fillStyle = `hsla(${state.hue}, 100%, 70%, ${b})`;
+                    ctx.textAlign = "center";
+                    ctx.fillText("HEY!", centerX, centerY - 220 + (Math.sin(lastTime*25)*15));
+                    ctx.restore();
+                }
+            } else if (state.currentMode === 'stickman') {
+                drawMan(centerX, centerY - 50, false, b, m, t);
+            } else if (state.currentMode === 'chicken') {
+                const bounce = Math.sin(lastTime * 5) * 25 * b;
+                const wingFlap = Math.sin(lastTime * 10) * 40 * m;
+                const headBob = Math.cos(lastTime * 5) * 15 * b;
+                const cx = centerX, cy = centerY + bounce;
+                ctx.beginPath(); ctx.ellipse(cx, cy, 60 + b*10, 80 + b*5, 0, 0, Math.PI * 2); ctx.stroke();
+                const hx = cx, hy = cy - 90 + headBob;
+                ctx.beginPath(); ctx.arc(hx, hy, 30 + b*5, 0, Math.PI * 2); ctx.stroke();
+                ctx.save(); ctx.strokeStyle = `hsla(0, 100%, 50%, 0.8)`; ctx.beginPath(); ctx.moveTo(hx-10, hy-25); ctx.quadraticCurveTo(hx, hy-55-b*20, hx+10, hy-25); ctx.stroke(); ctx.restore();
+                const beakOpen = 5 + (b+m+t)*10;
+                ctx.beginPath(); ctx.moveTo(hx+20, hy); ctx.lineTo(hx+40, hy-beakOpen); ctx.moveTo(hx+20, hy); ctx.lineTo(hx+40, hy+beakOpen); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(cx-50, cy-20); ctx.lineTo(cx-100, cy-40-wingFlap); ctx.lineTo(cx-50, cy+20); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(cx+50, cy-20); ctx.lineTo(cx+100, cy-40-wingFlap); ctx.lineTo(cx+50, cy+20); ctx.stroke();
+                const step = lastTime*8; const lStep = Math.max(0, Math.sin(step))*40*t, rStep = Math.max(0, Math.cos(step))*40*t;
+                ctx.beginPath(); ctx.moveTo(cx-20, cy+70); ctx.lineTo(cx-30, cy+120-lStep); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(cx+20, cy+70); ctx.lineTo(cx+30, cy+120-rStep); ctx.stroke();
+            } else if (state.currentMode === 'cow') {
+                const bounce = Math.sin(lastTime * 3) * 20 * b;
+                const headBounce = Math.cos(lastTime * 2) * 10;
+                const cx = centerX, cy = centerY + bounce;
+                ctx.strokeRect(cx - 80, cy - 40, 160, 90);
+                const hx = cx + 80; const hy = cy - 60 + headBounce;
+                ctx.strokeRect(hx, hy, 50, 60);
+                const hornSize = 15 + m * 30;
+                ctx.beginPath(); ctx.moveTo(hx + 10, hy); ctx.lineTo(hx + 5, hy - hornSize); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(hx + 40, hy); ctx.lineTo(hx + 45, hy - hornSize); ctx.stroke();
+                const kick = Math.sin(lastTime * 10) * 40 * t;
+                ctx.beginPath(); ctx.moveTo(cx + 60, cy + 50); ctx.lineTo(cx + 60, cy + 100); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(cx - 40, cy + 50); ctx.lineTo(cx - 40 - kick, cy + 100); ctx.stroke();
+                const tailW = Math.sin(lastTime * 15) * 20;
+                ctx.beginPath(); ctx.moveTo(cx - 80, cy - 20); ctx.lineTo(cx - 110, cy - 30 + tailW); ctx.stroke();
+            } else if (state.currentMode === 'vortex') {
+                const radius = 150 + (b * 60);
+                ctx.beginPath();
+                for (let i = 0; i < 360; i++) {
+                    const angle = i * Math.PI / 180;
+                    const val = state.dataArray ? state.dataArray[i % 128] : 20;
+                    const r = radius + (val * 0.4 * state.sensitivity * Math.sin(i * 0.1 + lastTime));
+                    ctx.lineTo(centerX + Math.cos(angle) * r, centerY + Math.sin(angle) * r);
+                }
+                ctx.closePath(); ctx.stroke();
+            } else if (state.currentMode === 'bars') {
+                const radius = 180 + (b * 40);
+                const bars = 120;
+                for(let i=0; i<bars; i++) {
+                    const angle = (i/bars) * Math.PI * 2;
+                    const val = state.dataArray ? state.dataArray[i % 128] : 0;
+                    const h = (val/255) * 120 * state.sensitivity;
+                    ctx.beginPath(); ctx.moveTo(centerX + Math.cos(angle)*radius, centerY + Math.sin(angle)*radius);
+                    ctx.lineTo(centerX + Math.cos(angle)*(radius+h), centerY + Math.sin(angle)*(radius+h));
+                    ctx.stroke();
+                }
+            } else if (state.currentMode === 'worm') {
+                ctx.beginPath();
+                const segments = 40, spacing = 15;
+                const wormHue = (state.hue + lastTime * 50) % 360;
+                ctx.strokeStyle = `hsla(${wormHue}, 100%, 70%, 1)`;
+                for (let i = 0; i < segments; i++) {
+                    const x = centerX - (segments * spacing) / 2 + i * spacing;
+                    const wave = Math.sin(i * 0.3 + lastTime * 5) * (40 + m * 100);
+                    const size = 10 + Math.sin(i * 0.2) * 8 + b * 20;
+                    if (i === 0) ctx.moveTo(x, centerY + wave); else ctx.lineTo(x, centerY + wave);
+                    ctx.save(); ctx.fillStyle = ctx.strokeStyle; ctx.beginPath(); ctx.arc(x, centerY + wave, size/2, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+                }
+                ctx.stroke();
+            }
+            lastTime += 0.05;
+        }
+
+        function updateProgress() {
+            if (localAudio.duration) {
+                const p = (localAudio.currentTime / localAudio.duration) * 100;
+                document.getElementById('progress-bar').style.width = p + '%';
+            }
+        }
+
+        // Seek music
+        document.getElementById('progress-container').addEventListener('click', (e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const pos = (e.clientX - rect.left) / rect.width;
+            if (localAudio.duration) {
+                localAudio.currentTime = pos * localAudio.duration;
+            }
+        });
+
+        document.getElementById('sens-slider').addEventListener('input', (e) => {
+            state.sensitivity = parseFloat(e.target.value);
+            document.getElementById('sens-val').innerText = state.sensitivity;
+        });
+
+        document.getElementById('color-slider').addEventListener('input', (e) => {
+            state.hue = parseInt(e.target.value);
+            document.getElementById('color-val').innerText = state.hue;
+        });
+
+        document.querySelectorAll('.visual-mode').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                state.currentMode = e.target.dataset.mode;
+                document.querySelectorAll('.visual-mode').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+            });
+        });
+
+        requestAnimationFrame(render);
+    </script>
+</body>
+</html>
